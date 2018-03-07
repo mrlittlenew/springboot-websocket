@@ -47,6 +47,33 @@ public class MyHandler implements WebSocketHandler {
 		}
 		
 	}
+	
+	@Override
+	public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
+		logger.debug("handleTransportError");
+	}
+
+	@Override
+	public void afterConnectionClosed(WebSocketSession session, CloseStatus closeStatus) throws Exception {
+		logger.debug("afterConnectionClosed");
+		UserDto sender = findOnlineUser(session);
+		//移除关闭的session
+		List<WebSocketSession> sessionList=cleanUserSessionList(sender);
+		//如果user下没有可用的连接，即offline
+		if(sessionList.size()==0){
+			subOnlineCount();
+			updateOnlineCount();
+			MessageDto offlineInfo = MessageDto.buildSystemInfo(sender.getName()+ "Offline!");
+			sendMessage(offlineInfo);
+		}
+	}
+	
+	@Override
+	public boolean supportsPartialMessages() {
+		logger.debug("supportsPartialMessages");
+		return false;
+	}
+	
 
 	private void handleUserLogin(WebSocketSession session, UserDto userDto) {
 		MessageDto messageDto=null;
@@ -80,9 +107,7 @@ public class MyHandler implements WebSocketHandler {
 		
 		//移除关闭的session
 		List<WebSocketSession> sessionList=cleanUserSessionList(userlogin);
-		
-		
-		
+
 		// 添加新的session
 		boolean self=false;
 		if (!sessionList.contains(session)) {
@@ -94,7 +119,6 @@ public class MyHandler implements WebSocketHandler {
 			}
 			messageDto = MessageDto.buildSystemInfo(userlogin.getName()+" Online!");
 		}
-		
 		
 		//更新页面信息
 		updateOnlineCount();
@@ -108,26 +132,6 @@ public class MyHandler implements WebSocketHandler {
 
 	}
 
-	@Override
-	public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
-		logger.debug("handleTransportError");
-	}
-
-	@Override
-	public void afterConnectionClosed(WebSocketSession session, CloseStatus closeStatus) throws Exception {
-		logger.debug("afterConnectionClosed");
-		UserDto sender = findOnlineUser(session);
-		//移除关闭的session
-		List<WebSocketSession> sessionList=cleanUserSessionList(sender);
-		//如果user下没有可用的连接，即offline
-		if(sessionList.size()==0){
-			subOnlineCount();
-			updateOnlineCount();
-			MessageDto offlineInfo = MessageDto.buildSystemInfo(sender.getName()+ "Offline!");
-			sendMessage(offlineInfo);
-		}
-	}
-	
 	public List<WebSocketSession> cleanUserSessionList(UserDto user){
 		List<WebSocketSession> sessionList=user.getSessionList();
 		List<WebSocketSession> newList =new ArrayList<WebSocketSession>();
@@ -140,11 +144,7 @@ public class MyHandler implements WebSocketHandler {
 		return newList;
 	}
 
-	@Override
-	public boolean supportsPartialMessages() {
-		logger.debug("supportsPartialMessages");
-		return false;
-	}
+
 
 	public void sendMessage(MessageDto messageDto) {
 		for (UserDto user : userSet) {
