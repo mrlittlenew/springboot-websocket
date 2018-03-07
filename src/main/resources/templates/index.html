@@ -1,0 +1,183 @@
+<!DOCTYPE html>  
+<html>  
+<head>  
+    <meta charset="UTF-8">  
+    <title>Chat Room</title>  
+	<meta content="width=300,user-scalable=no,target-densitydpi=device-dpi" name="viewport" id="viewport">
+    <script type="text/javascript" src="http://cdn.bootcss.com/sockjs-client/1.1.1/sockjs.min.js"></script>    
+    <script src="http://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script> 
+    
+    
+  
+    <script type="text/javascript">  
+    	var userName;
+    	var userId;
+    	$(document).ready(function(){
+    		connectWS();
+    		keyDown();
+    	});
+    	
+    	function keyDown(){
+    		$("#message").keypress(function(event){
+   			  if(event.ctrlKey&&event.keyCode ==10){
+   				sendMessage();
+   			  }
+   			});
+    	    window.onbeforeunload = function(){
+    	    	sock.close();
+    	    }
+    	}
+    	
+    	function getUserName(){
+    		if(!userName||$.trim(userName)==""){
+    			userName=getCookie("username");
+    			userId=getCookie("userid");
+    			if(!userName||$.trim(userName)==""){
+    				getNameFromPrompt();
+    			}
+    		}
+    		return userName;
+    	}
+    	function getNameFromPrompt(){
+    		userName=prompt("请输入你的名字");
+    		if(!userName||$.trim(userName)==""){
+				getNameFromPrompt();
+			}
+    	}
+    	
+    	var sock;
+        function connectWS() {
+        	$("#send").html("等待连接");
+    		$("#send").attr("disabled","disabled");
+        	var wsurl=window.location.href+"webSocketSockJS";
+            sock = new SockJS(wsurl);
+        	sock.onopen = function() {
+        	    console.log('open');
+        	    connected();
+        	};
+        	sock.onmessage = function(e) {
+        	    handleMsg(e);
+        	};
+        	sock.onclose = function() {
+        	    console.log('close');
+        	};
+        }
+        
+        function handleMsg(e){
+        	var messageJsonStr=e.data;
+        	var messageJson=JSON.parse(messageJsonStr)
+        	console.info(messageJson);
+        	var type =messageJson.type;
+        	var htmlText =messageJson.htmlText;
+        	console.info(type);
+        	if(type=="ONLINE"){
+        		$('#onlineCount').html(htmlText);
+        	}else if(type=="USER"){
+        		setCookie("userid",messageJson.sender.uid);
+        		setCookie("username",messageJson.sender.name);
+        	}else{
+        		var sender =messageJson.sender.name;
+    			var urlStr=sock._transport.url;
+    			if(urlStr.includes(sender)){
+    				sender="<b style='color:green'>You</b>";
+    			}
+    			var sendTime =messageJson.sendTime;
+
+    			if(type=="SYS"){
+    				htmlText="<b style='color:red'>"+htmlText+"</b>";
+    			}
+    			var message=sender+" "+sendTime+"<br/>"+htmlText+"<br/>";
+
+    			showMessage(message);
+        	}
+        }
+        
+        function changUserName(){
+    		setCookie("username","");
+    		userName="";
+        	connected();
+        }
+    	
+    	
+        function sendMessage() {
+        	if(sock.readyState!=1){
+        		connectWS();
+        		return;
+        	}
+        	var message = $('#message').val(); 
+        	var messageDto={};
+        	messageDto.type="MSG"
+        	messageDto.text=message;
+            sock.send(JSON.stringify(messageDto));
+            $('#message').val("");
+        }  
+
+        function showMessage(msg){
+        	$('#console').prepend(msg+"<br/>");
+        }
+        
+        function connected(){
+        	getUserName();
+        	var messageDto={};
+        	messageDto.type="USER";
+        	messageDto.sender={};
+        	messageDto.sender.name=userName;
+        	messageDto.sender.uid=userId;
+        	sock.send(JSON.stringify(messageDto));
+    		$("#send").html("发送消息");
+    		$("#send").removeAttr("disabled");
+    		$('#console').html("");
+    	}
+        
+        function setCookie(name,value){
+	        var Days = 30;
+	        var exp = new Date();
+	        exp.setTime(exp.getTime() + Days*24*60*60*1000);
+	        document.cookie = name + "="+ escape (value) + ";expires=" + exp.toGMTString();
+        }
+    	
+        function getCookie(name){
+	        var arr,reg=new RegExp("(^| )"+name+"=([^;]*)(;|$)");
+	        if(arr=document.cookie.match(reg)){
+	        	return unescape(arr[2]);
+	        }else{
+	        	return null;
+	        }
+        }
+        
+        function delCookie(name){
+	        var exp = new Date();
+	        exp.setTime(exp.getTime() - 1);
+	        var cval=getCookie(name);
+	        if(cval!=null){
+	        	document.cookie= name + "="+cval+";expires="+exp.toGMTString();
+	        }
+        }
+  
+    </script>
+    <style type="text/css"> 
+		textarea {
+			border:2px solid #A9A9A9;
+		}
+		#online{
+			float:right;
+			margin-right:5px;
+		}
+		.content{
+			width: 98%
+		}
+	</style> 
+</head>  
+<body>
+<div> 
+	<button id="rename" onclick="changUserName()">改名</button> <b>在线人数:</b><span id="onlineCount"></span>
+    <div id='online'><button id="send" onclick="sendMessage()">发送消息</button></div>
+</div>  
+<br/>
+<div>  
+    <textarea id="message" class="content"></textarea>  
+</div>  
+<div>信息：</div>  
+<p id="console" class="content"></p>  
+</body>  
+</html>  
