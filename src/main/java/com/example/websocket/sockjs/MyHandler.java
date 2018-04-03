@@ -3,6 +3,7 @@ package com.example.websocket.sockjs;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -14,8 +15,10 @@ import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.WebSocketMessage;
 import org.springframework.web.socket.WebSocketSession;
 
+import com.example.websocket.domain.Message;
 import com.example.websocket.dto.MessageDto;
 import com.example.websocket.dto.UserDto;
+import com.example.websocket.repository.MessageRepository;
 
 public class MyHandler implements WebSocketHandler {
 	private final Logger logger = LoggerFactory.getLogger(this.getClass());
@@ -23,7 +26,34 @@ public class MyHandler implements WebSocketHandler {
 	private static CopyOnWriteArraySet<UserDto> userSet = new CopyOnWriteArraySet<UserDto>();
 	private static CopyOnWriteArraySet<MessageDto> messageHistorySet = new CopyOnWriteArraySet<MessageDto>();
 	private static int onlineCount=0;
+	
+	private MessageRepository messageRep;
 	 
+
+	public MyHandler(MessageRepository messageRep) {
+		this.messageRep=messageRep;
+		buildmessageHistorySet();
+	}
+
+	private void buildmessageHistorySet() {
+		List<Message> messageList=messageRep.findAllByOrderBySendTime();
+		
+		for(Message message:messageList){
+			MessageDto messageDto = new MessageDto();
+			messageDto.setText(message.getText());
+			messageDto.setType(message.getType());
+			messageDto.setSendTime(message.getSendTime());
+			UserDto sender=new UserDto();
+			sender.setName(message.getSender());
+			messageDto.setSender(sender);
+			messageHistorySet.add(messageDto);
+		}
+		
+		
+		
+		
+		
+	}
 
 	@Override
 	public void afterConnectionEstablished(WebSocketSession session) throws Exception {
@@ -40,6 +70,7 @@ public class MyHandler implements WebSocketHandler {
 			// 加入消息利是
 			messageDto.setSender(sender);
 			messageHistorySet.add(messageDto);
+			saveMessageDto(messageDto);
 			sendMessage(messageDto);
 			sender.active();
 			break;
@@ -53,6 +84,16 @@ public class MyHandler implements WebSocketHandler {
 		
 	}
 	
+
+	private void saveMessageDto(MessageDto messageDto) {
+		Message message= new Message();
+		message.setType(messageDto.getType());
+		message.setText(messageDto.getText());
+		message.setSendTime(messageDto.getSendTime());
+		message.setSender(messageDto.getSender().getName());
+		message.setLastUpdateDate(new Date());
+		messageRep.save(message);
+	}
 
 	@Override
 	public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
