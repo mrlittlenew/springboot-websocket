@@ -1,6 +1,7 @@
 package com.example.websocket.sockjs;
 
 import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -40,14 +41,19 @@ public class MyHandler implements WebSocketHandler {
 			messageDto.setSender(sender);
 			messageHistorySet.add(messageDto);
 			sendMessage(messageDto);
+			sender.active();
 			break;
 		case MessageDto.TYPE_USER:
 			handleUserLogin(session, messageDto.getSender());
+			break;
+		case MessageDto.TYPE_CMD:
+			handleCMD(session, messageDto);
 			break;
 		}
 		
 	}
 	
+
 	@Override
 	public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
 		logger.debug("handleTransportError");
@@ -63,7 +69,7 @@ public class MyHandler implements WebSocketHandler {
 		if(sessionList.size()==0){
 			subOnlineCount();
 			updateOnlineCount();
-			MessageDto offlineInfo = MessageDto.buildSystemInfo(sender.getName()+ "Offline!");
+			MessageDto offlineInfo = MessageDto.buildSystemInfo(sender.getName()+ " Offline!");
 			sendMessage(offlineInfo);
 		}
 	}
@@ -74,6 +80,22 @@ public class MyHandler implements WebSocketHandler {
 		return false;
 	}
 	
+	private void handleCMD(WebSocketSession session, MessageDto messageDto) {
+		String cmd = messageDto.getText();
+		switch (cmd) {
+		case "GetOnlineUserList":
+			String onlineListHtml=buildOnlineUserHtml();
+			String offlineListHtml=buildOfflineUserHtml();
+			sendMessage(session,MessageDto.buildSystemInfo(onlineListHtml+"<br/><br/>"+offlineListHtml));
+			break;
+		default:
+			sendMessage(session,MessageDto.buildSystemInfo("未知指令，执行失败！"));
+			break;
+		}
+		
+	}
+
+
 
 	private void handleUserLogin(WebSocketSession session, UserDto userDto) {
 		MessageDto messageDto=null;
@@ -117,6 +139,7 @@ public class MyHandler implements WebSocketHandler {
 			}else{
 				self=true;
 			}
+			userlogin.online();
 			messageDto = MessageDto.buildSystemInfo(userlogin.getName()+" Online!");
 		}
 		
@@ -131,8 +154,10 @@ public class MyHandler implements WebSocketHandler {
 		}
 
 	}
+	
+	
 
-	public List<WebSocketSession> cleanUserSessionList(UserDto user){
+	private List<WebSocketSession> cleanUserSessionList(UserDto user){
 		List<WebSocketSession> sessionList=user.getSessionList();
 		List<WebSocketSession> newList =new ArrayList<WebSocketSession>();
 		for(WebSocketSession item:sessionList){
@@ -141,12 +166,75 @@ public class MyHandler implements WebSocketHandler {
 			}
 		}
 		user.setSessionList(newList);
+		
+		//是否在线
+		if(newList.size()>0){
+			user.setOnline(true);
+		}else{
+			user.setOnline(false);
+		}
 		return newList;
 	}
+	
+	private List<UserDto> getOnlineUserList(){
+		List<UserDto> onlineUserList=new ArrayList<UserDto>();
+		
+		for (UserDto user : userSet) {
+			List<WebSocketSession> sessionList= cleanUserSessionList(user);
+			if(sessionList.size()>0){
+				onlineUserList.add(user);
+			}
+		}
+		return onlineUserList;
+	}
+	
+	private List<UserDto> getOfflineUserList(){
+		List<UserDto> offlineUserList=new ArrayList<UserDto>();
+		for (UserDto user : userSet) {
+			List<WebSocketSession> sessionList= cleanUserSessionList(user);
+			if(sessionList.size()==0){
+				offlineUserList.add(user);
+			}
+		}
+		return offlineUserList;
+	}
 
+	private String buildOnlineUserHtml() {
+		List<UserDto> onlineList=getOnlineUserList();
+		SimpleDateFormat sdf=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");        
+		StringBuilder sb=new StringBuilder();
+		sb.append("在线人员:");
+		sb.append("<br/>");
+		sb.append("最后活动时间 ----------- 昵称");
+		for (UserDto user : onlineList) {
+			sb.append("<br/>");
+			String lastActive=sdf.format(user.getLastActiveTime());
+			sb.append(lastActive);
+			sb.append(" - ");
+			sb.append(user.getName());
+		}
+		return sb.toString();
+	}
+	
+	private String buildOfflineUserHtml() {
+		List<UserDto> onlineList=getOfflineUserList();
+		SimpleDateFormat sdf=new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");        
+		StringBuilder sb=new StringBuilder();
+		sb.append("离线人员:");
+		sb.append("<br/>");
+		sb.append("最后活动时间 ----------- 昵称");
+		for (UserDto user : onlineList) {
+			sb.append("<br/>");
+			String lastActive=sdf.format(user.getLastActiveTime());
+			sb.append(lastActive);
+			sb.append(" - ");
+			sb.append(user.getName());
+		}
+		return sb.toString();
+	}
 
-
-	public void sendMessage(MessageDto messageDto) {
+	private void sendMessage(MessageDto messageDto) {
+		
 		for (UserDto user : userSet) {
 			List<WebSocketSession> sessionList = user.getSessionList();
 			for (WebSocketSession session : sessionList) {
@@ -159,7 +247,7 @@ public class MyHandler implements WebSocketHandler {
 		}
 	}
 
-	public void sendMessage(WebSocketSession session, MessageDto messageDto) {
+	private void sendMessage(WebSocketSession session, MessageDto messageDto) {
 		try {
 			session.sendMessage(messageDto.buildTextMessage());
 		} catch (IOException e) {
@@ -175,7 +263,7 @@ public class MyHandler implements WebSocketHandler {
 	}
 
 	private void updateOnlineCount() {
-		MessageDto onlineInfo = MessageDto.build(null, "ONLINE", getOnlineCount() + "");
+		MessageDto onlineInfo = MessageDto.build(null, "COUNT", getOnlineCount() + "");
 		sendMessage(onlineInfo);
 	}
 

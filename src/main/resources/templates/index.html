@@ -49,7 +49,8 @@
         function connectWS() {
         	$("#send").html("等待连接");
     		$("#send").attr("disabled","disabled");
-        	var wsurl=window.location.href+"webSocketSockJS";
+        	var wsurl2=window.location.href+"webSocketSockJS";
+        	var wsurl="http://java.mrlittlenew.online:8080/websocket/webSocketSockJS";
             sock = new SockJS(wsurl);
         	sock.onopen = function() {
         	    console.log('open');
@@ -63,28 +64,37 @@
         	};
         }
         
+        function getOnlineUserList(){
+        	var messageDto={};
+        	messageDto.type="CMD"
+        	messageDto.text="GetOnlineUserList";
+            sock.send(JSON.stringify(messageDto));
+        }
+        
         function handleMsg(e){
         	var messageJsonStr=e.data;
         	var messageJson=JSON.parse(messageJsonStr)
         	console.info(messageJson);
         	var type =messageJson.type;
         	var htmlText =messageJson.htmlText;
-        	console.info(type);
-        	if(type=="ONLINE"){
+        	if(type=="COUNT"){
         		$('#onlineCount').html(htmlText);
         	}else if(type=="USER"){
+        		userName =messageJson.sender.name;
+        		userId =messageJson.sender.uid;
         		setCookie("userid",messageJson.sender.uid);
         		setCookie("username",messageJson.sender.name);
         	}else{
         		var sender =messageJson.sender.name;
-    			var urlStr=sock._transport.url;
-    			if(urlStr.includes(sender)){
-    				sender="<b style='color:green'>You</b>";
+        		var senderUid =messageJson.sender.uid;
+    			if(senderUid==userId){
+    				sender="<b style='color:green'>"+sender+"</b>";
     			}
     			var sendTime =messageJson.sendTime;
 
     			if(type=="SYS"){
     				htmlText="<b style='color:red'>"+htmlText+"</b>";
+    				sender="<b style='color:red'>"+sender+"</b>";
     			}
     			var message=sender+" "+sendTime+"<br/>"+htmlText+"<br/>";
 
@@ -170,14 +180,13 @@
 </head>  
 <body>
 <div> 
-	<button id="rename" onclick="changUserName()">改名</button> <b>在线人数:</b><span id="onlineCount"></span>
+	<button id="rename" onclick="changUserName()">改名</button> <b onclick="getOnlineUserList();">在线人数:</b><span id="onlineCount"></span>
     <div id='online'><button id="send" onclick="sendMessage()">发送消息</button></div>
 </div>  
 <br/>
 <div>  
     <textarea id="message" class="content"></textarea>  
 </div>  
-<div>信息：</div>  
 <p id="console" class="content"></p>  
 </body>  
 </html>  

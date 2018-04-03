@@ -26,6 +26,7 @@ public class MessageDto implements Serializable {
 	public static final String TYPE_ONLINE="ONLINE";//上下线广播信息
 	public static final String TYPE_SYS="SYS";//系统通知广播信息
 	public static final String TYPE_USER="USER";//更新用户信息
+	public static final String TYPE_CMD="CMD";//执行指令
 	
 	
 	private String type;
@@ -88,18 +89,16 @@ public class MessageDto implements Serializable {
 	}
 
 	public static MessageDto buildSystemInfo(String msgTxt) {
-		UserDto system=new UserDto();
-		system.setName("System");
-		
-		MessageDto message = new MessageDto();
-		message.setType(TYPE_SYS);
-		message.setText(msgTxt);
-		message.setSender(system);
-		return message;
+		return build(null,TYPE_SYS, msgTxt);
 	}
 
 	
 	public static MessageDto build(UserDto sender,String type, String msgTxt) {
+		if(sender==null){
+			UserDto system=new UserDto();
+			system.setName("System");
+			sender=system;
+		}
 		MessageDto message = new MessageDto();
 		message.setType(type);
 		message.setText(msgTxt);
