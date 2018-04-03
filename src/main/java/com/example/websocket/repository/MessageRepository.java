@@ -9,4 +9,6 @@ import com.example.websocket.domain.Message;
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
 	public List<Message> findAllByOrderBySendTime();
+
+	public List<Message> findByTypeOrderBySendTime(String typeMsg);
 }

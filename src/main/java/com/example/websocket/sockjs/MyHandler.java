@@ -36,7 +36,7 @@ public class MyHandler implements WebSocketHandler {
 	}
 
 	private void buildmessageHistorySet() {
-		List<Message> messageList=messageRep.findAllByOrderBySendTime();
+		List<Message> messageList=messageRep.findByTypeOrderBySendTime(MessageDto.TYPE_MSG);
 		
 		for(Message message:messageList){
 			MessageDto messageDto = new MessageDto();
@@ -65,13 +65,13 @@ public class MyHandler implements WebSocketHandler {
 		logger.debug("handleMessage");
 		UserDto sender = findOnlineUser(session);
 		MessageDto messageDto = MessageDto.build(message);
+		sendMessage(messageDto);
 		switch (messageDto.getType()) {
 		case MessageDto.TYPE_MSG:
 			// 加入消息利是
 			messageDto.setSender(sender);
 			messageHistorySet.add(messageDto);
 			saveMessageDto(messageDto);
-			sendMessage(messageDto);
 			sender.active();
 			break;
 		case MessageDto.TYPE_USER:
