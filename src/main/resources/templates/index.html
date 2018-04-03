@@ -19,7 +19,9 @@
     	
     	function keyDown(){
     		$("#message").keypress(function(event){
- 
+                if(event.keyCode ==10){
+                    sendMessage();
+                }
    			});
     	    window.onbeforeunload = function(){
     	    	sock.close();
@@ -49,7 +51,7 @@
     		$("#send").attr("disabled","disabled");
         	var wsurl2=window.location.href+"webSocketSockJS";
         	var wsurl="http://java.mrlittlenew.online:8080/websocket/webSocketSockJS";
-            sock = new SockJS(wsurl2);
+            sock = new SockJS(wsurl);
         	sock.onopen = function() {
         	    console.log('open');
         	    connected();
